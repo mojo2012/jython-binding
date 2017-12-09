@@ -1,9 +1,9 @@
 package at.spot.jython.testing;
 
-import at.spot.jython.PythonMethod;
 import at.spot.jython.PythonClass;
+import at.spot.jython.PythonMethod;
 
-@PythonClass(moduleName = "Car", className = "Car", constructorArgs = { String.class })
+@PythonClass(moduleName = "Car", className = "Car")
 public interface Car {
 
 	@PythonMethod

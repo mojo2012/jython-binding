@@ -11,6 +11,4 @@ public @interface PythonClass {
 	String moduleName();
 
 	String className();
-
-	Class<?>[] constructorArgs() default {};
 }
