@@ -3,12 +3,7 @@ from at.spot.jython.testing import Building
 
 class Building(Building):
 
-	def __init__(self):
-		self.id = -1
-		self.name = None
-		self.address = None
-	
-	def __init__(self, id, name, address):
+	def __init__(self, id = -1, name = None, address = None):
 		self.id = id
 		self.name = name
 		self.address = address
