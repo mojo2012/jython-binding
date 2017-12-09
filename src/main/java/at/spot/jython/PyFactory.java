@@ -1,5 +1,9 @@
 package at.spot.jython;
 
+import static net.bytebuddy.matcher.ElementMatchers.isAnnotatedWith;
+import static net.bytebuddy.matcher.ElementMatchers.isStatic;
+import static net.bytebuddy.matcher.ElementMatchers.not;
+
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -22,7 +26,6 @@ import net.bytebuddy.implementation.bind.annotation.AllArguments;
 import net.bytebuddy.implementation.bind.annotation.Origin;
 import net.bytebuddy.implementation.bind.annotation.RuntimeType;
 import net.bytebuddy.implementation.bind.annotation.This;
-import net.bytebuddy.matcher.ElementMatchers;
 
 public class PyFactory {
 	protected static final PyFactory INSTANCE = new PyFactory();
@@ -36,16 +39,17 @@ public class PyFactory {
 	}
 
 	/**
-	 * Creates an instance of the python class that implements the type.
+	 * Creates an instance of the python class that implements the interface and
+	 * converts it to a java object. No proxying is used here.
 	 * 
 	 * @param type
-	 *            the interface that is being implemented by the python class
+	 *            the interface implemented by the python class
 	 * @param moduleName
-	 *            the module the python class is implemented in.
+	 *            the module the python class is implemented in
 	 * @param className
 	 *            the python class name
 	 * @param args
-	 *            the args that will be passed to the constructor
+	 *            the constructor arguments used for instantiation
 	 * @return a java instance of the python class.
 	 */
 	public <T> T createInstance(final Class<T> type, final String moduleName, final String className,
@@ -60,7 +64,48 @@ public class PyFactory {
 		return (T) instance.__tojava__(type);
 	}
 
+	/**
+	 * Creates an instance of the python class that implements the interface and
+	 * converts it to a java object. No proxying is used here.
+	 * 
+	 * @param type
+	 *            the interface implemented by the python class. It has to be
+	 *            annotated with {@link PythonClass} containing the information
+	 *            about how to instantiate the python class
+	 * @param args
+	 *            the constructor arguments used for instantiation
+	 * 
+	 * @return a java instance of the python class.
+	 * 
+	 * @see this{@link #createInstance(Class, String, String, Object...)}.
+	 */
 	public <T> T createInstance(final Class<T> type, final Object... args) {
+		final Optional<PythonClass> ann = getPythonClassAnnotation(type);
+
+		if (ann.isPresent()) {
+			return createInstance(type, ann.get().moduleName(), ann.get().className(), args);
+		} else {
+			throw new IllegalArgumentException(String.format("Interface %s has no @% annotation", type.getName(),
+					PythonClass.class.getSimpleName()));
+		}
+	}
+
+	/**
+	 * Returns an instance of a python class configured using the
+	 * {@link PythonClass} annotation on the given interface type.
+	 * 
+	 * Use this to communicate with objects that don't implement a java
+	 * interface.
+	 * 
+	 * @param the
+	 *            interface of the generated proxy wrapper.
+	 * @param the
+	 *            constructor arguments used for instantiation
+	 * @return an instance of the given interface (subclass of
+	 *         {@link JythonObjectProxy} proxying all method calls to the
+	 *         underlying python object.
+	 */
+	public <T> T createProxyInstance(final Class<T> type, final Object... args) {
 		final PyObject importer = getImporter();
 		setClasspath(importer);
 
@@ -85,6 +130,9 @@ public class PyFactory {
 		}
 	}
 
+	/**
+	 * Creates a proxy ({@link JythonObjectProxy}) for a given python object.
+	 */
 	@SuppressWarnings("unchecked")
 	protected <T> T wrapPythonObject(final PyObject pyObject, final Class<T> type)
 			throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
@@ -93,10 +141,7 @@ public class PyFactory {
 		final Class<T> proxy = (Class<T>) new ByteBuddy() //
 				.subclass(JythonObjectProxy.class) //
 				.implement(type) //
-				// .method(ElementMatchers.not(ElementMatchers.isStatic())
-				// .and(ElementMatchers.not(ElementMatchers.isAbstract()))
-				// .and(ElementMatchers.isAnnotatedWith(PythonMethod.class))) //
-				.method(ElementMatchers.isAnnotatedWith(PythonMethod.class)) //
+				.method(not(isStatic()).and(isAnnotatedWith(PythonMethod.class))) //
 				.intercept(MethodDelegation.to(MethodInterceptor.class)) //
 				.make().load(getClass().getClassLoader()).getLoaded();
 
@@ -105,6 +150,10 @@ public class PyFactory {
 		return instance;
 	}
 
+	/**
+	 * Intercepts methods on the proxy that should be forwarded to the python
+	 * object.
+	 */
 	protected static class MethodInterceptor {
 		@RuntimeType
 		public static Object intercept(@This final JythonObjectProxy instance, @Origin final Method method,
@@ -114,6 +163,9 @@ public class PyFactory {
 		}
 	}
 
+	/**
+	 * Creates python class from the given definitions.
+	 */
 	protected PyObject getPythonClass(final PyObject importer, final String moduleName, final String className) {
 		final PyObject module = importer.__call__(Py.newString(moduleName));
 		final PyObject pyClass = module.__getattr__(className);
@@ -125,10 +177,17 @@ public class PyFactory {
 		return new PySystemState().getBuiltins().__getitem__(Py.newString("__import__"));
 	}
 
+	/**
+	 * Returns the {@link PythonClass} annotation for the given type.
+	 */
 	protected Optional<PythonClass> getPythonClassAnnotation(final Class<?> type) {
 		return Optional.of(type.getDeclaredAnnotation(PythonClass.class));
 	}
 
+	/**
+	 * Adds the current folder and the java classpath to the python sys.path.
+	 * This is necessary to find a python in your codebase.
+	 */
 	protected void setClasspath(final PyObject importer, final String... paths) {
 		// get the sys module
 		final PyObject sysModule = importer.__call__(Py.newString("sys"));
@@ -151,13 +210,16 @@ public class PyFactory {
 	}
 
 	/**
-	 * Instantiates the python class and returns the java representation.
+	 * Instantiates the python class with the given constructor arguments.
 	 */
 	protected PyObject createObject(final PyObject pyClass, final Object[] args, final String[] keywords) {
-		return pyClass.__call__(convertArgs(args), keywords);
+		return pyClass.__call__(convertArgs2Python(args), keywords);
 	}
 
-	public PyObject[] convertArgs(final Object... args) {
+	/**
+	 * Converts the given arguments to python objects.
+	 */
+	public PyObject[] convertArgs2Python(final Object... args) {
 		final PyObject[] convertedArgs = new PyObject[args.length];
 
 		for (int i = 0; i < args.length; i++) {
@@ -165,6 +227,29 @@ public class PyFactory {
 		}
 
 		return convertedArgs;
+	}
+
+	/**
+	 * Converts the given python object arguments to java objects. If only one
+	 * argument is given, the corresponding java object is returned. In case
+	 * multiple arguments are given, an array is returned.
+	 */
+	public Object convertArgs2Java(final PyObject... args) {
+		Object ret = null;
+
+		if (args.length == 1) {
+			ret = args[0].__tojava__(Object.class);
+		} else {
+			final Object[] convertedArgs = new Object[args.length];
+
+			for (int i = 0; i < args.length; i++) {
+				convertedArgs[i] = args[i].__tojava__(Object.class);
+			}
+
+			ret = convertedArgs;
+		}
+
+		return ret;
 	}
 
 	/**

@@ -28,7 +28,7 @@ public class PyFactoryTest {
 	public void testPythonClassWithoutInterfaceWithConstructorArgument() {
 		final String numberPlate = "test plate";
 
-		final Car car = PyFactory.getInstance().createInstance(Car.class, numberPlate);
+		final Car car = PyFactory.getInstance().createProxyInstance(Car.class, numberPlate);
 
 		Assert.assertNotNull(car);
 		Assert.assertEquals(numberPlate, car.getNumberPlate());
@@ -36,7 +36,7 @@ public class PyFactoryTest {
 
 	@Test
 	public void testPythonClassWithoutInterfaceWithoutConstructorArgument() {
-		final Car car = PyFactory.getInstance().createInstance(Car.class);
+		final Car car = PyFactory.getInstance().createProxyInstance(Car.class);
 
 		Assert.assertNotNull(car);
 		Assert.assertNull(car.getNumberPlate());
