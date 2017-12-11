@@ -29,17 +29,17 @@ You can then instantiate the python class using the `PyFactory`:
 Car car = PyFactory.getInstance().createInstance(Car.class);
 ```
 
-If you can't customize the interface you can also directly pass the moduleName and className info to the PyFactory:
+If you can't customize the interface you can also directly pass the `moduleName` and `className` info to the `PyFactory`:
 ```
 Car car = PyFactory.getInstance().createInstance(YourInterface.class, "Car", "Car");
 ```
 
-When you can't customize the python class (and hence can't implement an interface), you can create your own interface matching the python classe's API create a proxy instance using the `PyFactory`:
+When you can't customize the python class (and hence can't implement an interface), you can create your own interface matching the python class's API and create a proxy instance using the `PyFactory`:
 ```
 Car car = PyFactory.getInstance().createProxyInstance(Car.class, numberPlate);
 ```
 
-For the proxy to be able to forward method calls you have to annotate the methods with `@PythonMethod`. The method names have to match the python methods (except for the first `self` parameter):
+For the proxy to be able to forward method calls you have to annotate the methods with `@PythonMethod`. The method name and the arguments have to match the python method (except for the first `self` parameter):
 ```
 @PythonClass(moduleName = "Car", className = "Car")
 public interface Car {
@@ -48,10 +48,10 @@ public interface Car {
 	String getNumberPlate();
 }
 ```
-> There is also a factory method availalbe that allows you to pass in moduleName and className separately.
+> There is also a factory method availalbe that allows you to pass in `moduleName` and `className` separately.
 
 ### Custom python class that implements a java interface
-When you write custom python classes the best way to use them in java is to implement a java interface. This allows you to directly access the python object using the interface methods.
+When you write custom python classes, the best way to use them in java, is to implement a java interface. This allows you to directly access the python object using the interface methods.
 
 Interface **Building.java**
 ```
