@@ -4,6 +4,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import at.spot.jython.testing.Building;
+import at.spot.jython.testing.CPythonExample;
 import at.spot.jython.testing.Car;
 
 public class PyFactoryTest {
@@ -40,5 +41,12 @@ public class PyFactoryTest {
 
 		Assert.assertNotNull(car);
 		Assert.assertNull(car.getNumberPlate());
+	}
+
+	@Test
+	public void testCPythonModule() {
+		final CPythonExample cPython = PyFactory.getInstance().createProxyInstance(CPythonExample.class);
+
+		Assert.assertNotNull(cPython.getResponse());
 	}
 }

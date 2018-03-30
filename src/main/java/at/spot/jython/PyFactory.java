@@ -7,9 +7,7 @@ import static net.bytebuddy.matcher.ElementMatchers.not;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -20,6 +18,7 @@ import org.python.core.PyObject;
 import org.python.core.PyString;
 import org.python.core.PySystemState;
 
+import JyNI.PySystemStateJyNI;
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.implementation.MethodDelegation;
 import net.bytebuddy.implementation.bind.annotation.AllArguments;
@@ -29,7 +28,7 @@ import net.bytebuddy.implementation.bind.annotation.This;
 
 public class PyFactory {
 	protected static final PyFactory INSTANCE = new PyFactory();
-	protected Map<Class<?>, PySystemState> states = new HashMap<>();
+	protected PySystemState state;
 
 	private PyFactory() {
 	}
@@ -94,16 +93,15 @@ public class PyFactory {
 	 * Returns an instance of a python class configured using the
 	 * {@link PythonClass} annotation on the given interface type.
 	 * 
-	 * Use this to communicate with objects that don't implement a java
-	 * interface.
+	 * Use this to communicate with objects that don't implement a java interface.
 	 * 
 	 * @param the
 	 *            interface of the generated proxy wrapper.
 	 * @param the
 	 *            constructor arguments used for instantiation
 	 * @return an instance of the given interface (subclass of
-	 *         {@link JythonObjectProxy} proxying all method calls to the
-	 *         underlying python object.
+	 *         {@link JythonObjectProxy} proxying all method calls to the underlying
+	 *         python object.
 	 */
 	public <T> T createProxyInstance(final Class<T> type, final Object... args) {
 		final PyObject importer = getImporter();
@@ -174,7 +172,15 @@ public class PyFactory {
 	}
 
 	protected PyObject getImporter() {
-		return new PySystemState().getBuiltins().__getitem__(Py.newString("__import__"));
+		return getSystemState().getBuiltins().__getitem__(Py.newString("__import__"));
+	}
+
+	protected PySystemState getSystemState() {
+		if (state == null) {
+			state = new PySystemStateJyNI();
+		}
+
+		return state;
 	}
 
 	/**
@@ -185,8 +191,8 @@ public class PyFactory {
 	}
 
 	/**
-	 * Adds the current folder and the java classpath to the python sys.path.
-	 * This is necessary to find a python in your codebase.
+	 * Adds the current folder and the java classpath to the python sys.path. This
+	 * is necessary to find a python in your codebase.
 	 */
 	protected void setClasspath(final PyObject importer, final String... paths) {
 		// get the sys module
@@ -252,17 +258,4 @@ public class PyFactory {
 		return ret;
 	}
 
-	/**
-	 * Returns a {@link PySystemState} for the given type or creates one.
-	 */
-	protected <T> PySystemState getState(final Class<T> type) {
-		PySystemState state = states.get(type);
-
-		if (state == null) {
-			state = new PySystemState();
-			states.put(type, state);
-		}
-
-		return state;
-	}
 }

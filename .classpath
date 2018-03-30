@@ -32,5 +32,11 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="lib/JyNI.jar">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="jython-binding/lib"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="lib"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>
